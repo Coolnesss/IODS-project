@@ -1,4 +1,4 @@
-# Insert chapter 2 title here
+# Chapter 2 student data
 
 *Describe the work you have done this week and summarize your learning.*
 
@@ -10,4 +10,51 @@
 date()
 ```
 
-Here we go again...
+Lets start by reading the data
+```{r}
+analysis = read.csv('data/data.csv', header = TRUE)
+print(str(analysis))
+```
+
+The data contains student questionnaire answers and attributes such as gender, age, etc. The variables describe their aptitudes, strengths and weaknesses, such as organization, reading styles, study styles, etc.
+
+```{r}
+library(GGally)
+library(ggplot2)
+
+ggpairs(analysis, mapping = aes(), lower = list(combo = wrap("facethist", bins = 20)))
+
+```
+
+
+The pairwise plot indicates that for example gender has little effect on Points, with the correlation also being small. On the other hand there is a large correlation between Points and Attitude which seems to suggest that people who were motivated to study got more points in the exam. The age distribution is highly skewed, with most respondents being close to the age of 20. Otherwise, most of the other columns roughly follow a Gaussian distribution.
+
+
+Lets choose the following three attributes to fit our regression model on: Attitude, Age and Gender. In other words we are interested in knowing if we can explain the exam points using these three variables.
+```{r}
+linear_regression = lm(Points ~ Age+Attitude+gender, data = analysis)
+summary(linear_regression)
+```
+
+It would seem that indeed Attitude has a large coefficient meaning it contributes highly to the prediction. The significance test related to this predictor gives a very small value, meaning that it is unlikely that this result is by chance. On the other hand, while gender has a large negative coefficient, meaning being male reduces the amount of points recieved under the model, its corresponding p-value is high, meaning there is large variance in this result. Finally, age also has a moderately large p-value while also having a negligible effect.
+
+Seeing that age and gender are not reliable predictors of exam scores, lets remove them from the model and try again with only attitude as the predictor.
+```{r}
+linear_regression = lm(Points ~ Attitude, data = analysis)
+summary(linear_regression)
+```
+
+Now we can see that attitude is indeed a strong predictor of exam points and this result is statistically significant, i.e unlikely to be attributed to chance.
+
+Finally lets interpret the multiple R-squared statistic of the model. An R-squared of only 0.19 means that only 19% of the data fit the model. Importantly, after taking out the two variables Age and Gender, our R-squared dropped by only 0.01 meaning they did not contribute much to fitting the data.
+
+We also need to visualize the model using plots. 
+
+```{r}
+par(mfrow=c(2,2))
+plot(linear_regression, which = c(1,2,5))
+```
+
+
+
+The first residuals vs fitted plot shows us that apart from the extreme values near 28, the residuals are evenly distributed, which means that there does not seem to be an underlying non-linearity that would affect the linearity assumption of our model. The Normal QQ plot shows that our sample data slightly skewed, since a non-skewed data would have a straight line plot. This suggests the data does not come from a normal distribution. Finally, the residuals vs leverage plot tells us how sensitive our prediction is to a change in the real exam points. We can also see if there are any datapoints for which their removal would cause a large change in the model. In this case there are no such points, since there is no visible dotted red line.
