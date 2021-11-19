@@ -1,0 +1,86 @@
+
+## Chapter 3 alcohol data
+```{r}
+date()
+
+```
+
+
+```{r}
+library(tidyverse)
+data = read.csv('data/alc_data.csv')
+print(str(data))
+print(max(data$age))
+print( min(data$age))
+```
+
+
+The data consists of a questionnaire done to students of ages 15-22. Various questions about their background are asked as well as what they do on their free time, how much alcohol they consume and so forth. Also their grades are given here.
+
+We will choose 4 variables to try to predict alcohol use using those variables. I will choose "failures" since failing a class might indicate alcohol use. In addition "freetime" will be chosen since people who have a lot of free time might be drinking. Age will also be chosen. Finally, I will choose "studytime" since people who study more dont have time to drink. 
+
+
+```{r}
+library(GGally)
+library(ggplot2)
+data$freetime = as.ordered(data$freetime)
+data$studytime = as.ordered(data$studytime)
+data$failures = as.ordered(data$failures)
+
+data_subset = data[c('alc_use', 'freetime', 'studytime', 'age', 'failures')]
+
+ggpairs(data_subset, mapping = aes(), lower = list(combo = wrap("facethist", bins = 20)))
+
+```
+
+Here we have the relationship between the chosen variables and alcohol use. From the top row we can see that in particular the number of failures correlates with alchohol use: people with 3 failures had the most alcohol use. Age also seems to slightly correlate with alcohol use, with older students drinking more. People who study the most have the least amount of alcohol use. As for freetime, the connection is less clear. Therefore the chosen variables seem to be pretty good at describing alcohol use.
+
+
+```{r}
+glm_data = data[c('high_use', 'freetime', 'studytime', 'age', 'failures')]
+glm_data$failures = ordered(glm_data$failures)
+glm_data$age = as.numeric(glm_data$age)
+glm_data$studytime = as.ordered(glm_data$studytime)
+glm_data$freetime = as.ordered(glm_data$freetime)
+glm_model = glm(high_use ~ ., data=glm_data, family = "binomial")
+glm_model
+
+```
+
+Here we cast all the features into ordered values except age, since they  have a clear ordering (freetime 5 is more than freetime 4)
+
+```{r}
+print(exp(coef(glm_model)))
+print(confint(glm_model))
+```
+
+Since we specified some of the features as having an order, R has fit each variable with a series of polynomial functions (L for linear, Q for quadratic and so on). Lets focus on the linear ones. We can interpret the exponentials of the coefficients as odds ratios for each feature. This means that Failures, for example, has an odds ratio of 2.2/1 meaning it is twice as likely that a person who failed a class uses a high amount of alchohol. Also, freetime seems to have a massive impact on high alcohol use as well, with people who have a lot of freetime being 3 times as likely to use a lot of alcohol. Perhaps somewhat surprisingly age doesnt play a big role.
+
+```{r}
+alc = glm_data
+probabilities <- predict(glm_model, type = "response")
+
+# add the predicted probabilities to 'alc'
+alc <- mutate(alc, probability = probabilities)
+
+# use the probabilities to make a prediction of high_use
+alc <- mutate(alc, prediction = alc$probability > 0.5)
+
+# see the last ten original classes, predicted probabilities, and class predictions
+select(alc, failures, age, freetime, studytime, high_use, probability, prediction) %>% tail(10)
+
+# tabulate the target variable versus the predictions
+table(high_use = alc$high_use, prediction = alc$prediction)
+
+```
+We can see from the matrix that we predicted a TRUE value 18 times when it was actually true, and 15 times when it was actually false. On the other hand, we predicted false 244 times for false samples and 93 times for true samples. This indicates that the model is not very good, but still decent. The training error can be calculated
+
+```{r}
+
+c_mat = table(high_use = alc$high_use, prediction = alc$prediction)
+print('accuracy')
+print(1 - (c_mat[1, 2] + c_mat[2, 1]) / sum(c_mat))
+print('majority class')
+print(mean(glm_data$high_use))
+```
+Always guessing "False" would get 0.7 accuracy so we are barely better than that. I guess the model is bad after all.
