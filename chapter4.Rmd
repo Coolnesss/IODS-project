@@ -1,0 +1,150 @@
+# Boston housing clustering
+
+```{r}
+date()
+```
+
+
+```{r}
+library(MASS)
+data = Boston
+str(data)
+```
+
+The Boston housing dataset consists of different aspects of the towns or provinces in Boston. Theres crime numbers, tax rates, distances to different main places, ages of buildings and even the proportion of black people in the district. The main task is to predict the nitric oxide level in a part of the city.
+
+
+```{r, fig.width=9, fig.height=9}
+library(GGally)
+library(ggplot2)
+
+data$chas = as.factor(data$chas)
+ggpairs(data, mapping = aes(colour=chas), lower = list(combo = wrap("facethist", bins = 20)))
+```
+
+
+Here chas is a binary variable so I plotted it separately. The variables nox and age seem to be highly correlated, which indicates that the presence of older apartments increases nitrous oxide levels. In addition, distance to employment centers seems to be negatively correlated with the nitrous oxide levels, so areas closer to the center have less problems in this regard. Also curiously tax rate seems to be positively correlated with crime in the area.
+
+
+
+```{r}
+library(dplyr)
+colnames(data)
+boston_scaled <- data %>% mutate_at(c("crim",    "zn" ,     "indus"  , "nox"    , "rm"   ,   "age"  ,   "dis" ,    "rad"   ,  "tax" ,    "ptratio" ,"black"  , "lstat",  "medv"), ~(scale(.) %>% as.vector))
+str(boston_scaled)
+```
+
+Here we did not scale the variable chas since its binary. Scaling the proportional values also seems odd but I did it anyway since the instructions asked. Now lets create the factor variable
+
+```{r}
+# create a quantile vector of crim and print it
+bins <- quantile(boston_scaled$crim)
+bins
+
+# create a categorical variable 'crime'
+crime <- cut(boston_scaled$crim, breaks = bins, include.lowest = TRUE)
+
+# look at the table of the new factor crime
+
+
+# remove original crim from the dataset
+boston_scaled <- dplyr::select(boston_scaled, -crim)
+
+# add the new categorical value to scaled data
+boston_scaled <- data.frame(boston_scaled, crime)
+```
+```{r}
+str(boston_scaled$crime)
+```
+```{r}
+## 75% of the sample size
+smp_size <- floor(0.8 * nrow(boston_scaled))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(boston_scaled)), size = smp_size)
+
+train <- boston_scaled[train_ind, ]
+test <- boston_scaled[-train_ind, ]
+print(nrow(train))
+print(nrow(test))
+```
+
+Now we have partitioned the data into training and test sets. Next lets fit LDA
+
+```{r}
+# linear discriminant analysis
+lda.fit <- lda(crime ~ ., data = train)
+
+# print the lda.fit object
+lda.fit
+
+# the function for lda biplot arrows
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+# target classes as numeric
+classes <- as.numeric(train$crime)
+
+# plot the lda results
+plot(lda.fit, dimen = 2)
+lda.arrows(lda.fit, myscale = 1)
+
+```
+
+I didn't really understand the plot but lets move on. Next we will predict using LDA on the test set
+
+```{r}
+true_crime = test$crime
+test <- dplyr::select(test, -crime)
+# predict classes with test data
+lda.pred <- predict(lda.fit, newdata = test)
+
+# cross tabulate the results
+table(correct = true_crime, predicted = lda.pred$class)
+
+```
+
+
+
+The different quantiles indicate different crime rates, with [-0.419,-0.411] being the smallest bin and (0.00739,9.92] being the highest one. We predicted the high crime areas very well, since only 1 was incorrectly classified when the true class was the highest crime rate. On the other hand in the smaller crime rates there are more mistakes which indicates they are not as easy to classify. Now lets reload boston dataset to run k-means
+
+```{r}
+boston_scaled <- data %>% mutate_at(c("crim",    "zn" ,     "indus"  , "nox"    , "rm"   ,   "age"  ,   "dis" ,    "rad"   ,  "tax" ,    "ptratio" ,"black"  , "lstat",  "medv"), ~(scale(.) %>% as.vector))
+```
+
+
+```{r}
+# k-means clustering
+km <-kmeans(boston_scaled, centers = 1)
+
+# plot the Boston dataset with clusters
+pairs(boston_scaled[5:10], col = km$cluster)
+```
+
+
+```{r}
+# k-means clustering
+km <-kmeans(boston_scaled, centers = 2)
+
+# plot the Boston dataset with clusters
+pairs(boston_scaled[5:10], col = km$cluster)
+```
+
+```{r}
+# k-means clustering
+km <-kmeans(boston_scaled, centers = 3)
+
+# plot the Boston dataset with clusters
+pairs(boston_scaled[5:10], col = km$cluster)
+```
+Here we saw three different amounts of clusters. Clearly 1 cluster is not useful, but two seems to partition the data nicely in most cases. Three tends to just partition a fairly uniform group into two separate groups which does not feel useful. So here I would argue 2 is a good choice. 
+
+Regarding the clustering itself we can see that for example there are two clear clusters in the nox / tax plot which indicates that there is a set of outlier tax rates which are more or less the same. 
+
