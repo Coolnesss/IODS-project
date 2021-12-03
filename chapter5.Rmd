@@ -1,0 +1,86 @@
+
+## PCA
+```{r}
+date()
+```
+
+```{r}
+library(GGally)
+library(ggplot2)
+library('FactoMineR')
+library('tidyr')
+library(dplyr)
+human = read.csv('http://s3.amazonaws.com/assets.datacamp.com/production/course_2218/datasets/human2.txt', sep=',')
+dim(human)
+ggpairs(human, mapping = aes(), lower = list(combo = wrap("facethist", bins = 20)))
+
+```
+
+There is a major correlation between life expectancy and adolecent birth rate, as well as mortality rates and life expectancy: a higher life expectancy correlates with lower mortality rates, which is expected. Also, the gross national income correlates negatively with mortality and positively with live expectency. It seems there are a few countries with very high mortality and the rest are quite low judging from the distribution of the values.
+
+
+
+```{r}
+str(human)
+
+```
+```{r, fig.width=12, fig.height=12}
+pca_human <- prcomp(human)
+
+# draw a biplot of the principal component representation and the original variables
+biplot(pca_human, choices = 1:2)
+```
+
+
+
+```{r, fig.width=12, fig.height=12}
+human_std <- scale(human)
+
+# print out summaries of the standardized variables
+
+
+# perform principal component analysis (with the SVD method)
+pca_human <- prcomp(human_std)
+
+# draw a biplot of the principal component representation and the original variables
+biplot(pca_human, choices = 1:2)
+```
+The results are very different because the scales of the different variables such as GNI were so different before that they skewed the PCA results. In this plot we see that the first principal component has high values in countries with large maternal mortality and adolescent birth rates, and low values on countries with high education expectency and life expectency. This means that for example Niger has low life expectency but high maternal mortality. On the other hand the second principal component correlates with high labour female to male ratio and females in parliament, which means taht for example Iran has a low amount of women working while Bolivia has a high amount.
+
+
+
+```{r}
+library('FactoMineR')
+library('tidyr')
+data(tea)
+keep_columns <- c("Tea", "How", "how", "sugar", "where", "lunch")
+
+# select the 'keep_columns' to create a new dataset
+tea_time <- dplyr::select(tea, keep_columns)
+
+# visualize the dataset
+gather(tea_time) %>% ggplot(aes(value)) + facet_wrap("key", scales = "free") + geom_bar() + theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+
+
+```
+
+```{R}
+# multiple correspondence analysis
+mca <- MCA(tea_time, graph = FALSE)
+
+# summary of the model
+summary(mca)
+
+# visualize MCA
+plot(mca, invisible=c("ind"))
+
+```
+It seems that the variables 'other' and chain store+tea shop and most correlated with dimension 2, while tea shop and unpackaged are most correlated with dimension 1. 
+
+
+
+
+
+
+
+
